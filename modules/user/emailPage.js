@@ -1,6 +1,9 @@
 import { d } from "../../asset/js/custom.lib.js";
 import { commonLoad } from "./common.js";
 import { doc } from "./viewer.js";
+
+const { PDFDocument, StandardFonts, PageSizes } = PDFLib;
+
 const emailPage = `
     <div>
       <section id="wrapper">
@@ -194,6 +197,101 @@ const emailPage = `
     </div>
 `;
 
+// download file
+const download = async (data, fileName) => {
+  let loading = document.querySelector("#loading");
+  loading.style.display = "block";
+
+  const anchor = document.createElement("a");
+  if ("download" in anchor) {
+    //html5 A[download]
+    anchor.href = data;
+    anchor.setAttribute("download", fileName);
+    anchor.innerHTML = "downloading...";
+    anchor.style.display = "none";
+    anchor.addEventListener("click", function (e) {
+      e.stopPropagation();
+    });
+    document.body.appendChild(anchor);
+    setTimeout(function () {
+      anchor.click();
+      document.body.removeChild(anchor);
+      loading.style.display = "none";
+    }, 66);
+  }
+};
+
+const createPdf = async (obj, pdf) => {
+  const fontSize = 13;
+  const size = [];
+
+  const pdfDoc = await PDFDocument.create();
+  const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+  for (let key in obj) {
+    size.push(helveticaBold.widthOfTextAtSize(key, fontSize));
+  }
+
+  let initY = 50;
+  let maxH = helveticaBold.heightAtSize(fontSize);
+  let maxW = Math.max(...size);
+
+  const page = pdfDoc.addPage(PageSizes.A4);
+
+  for (let key in obj) {
+    page.drawText(key, {
+      x: 50,
+      y: page.getHeight() - initY,
+      size: fontSize,
+      font: helveticaBold,
+    });
+
+    page.drawText(":", {
+      x: maxW + 60,
+      y: page.getHeight() - initY,
+      size: fontSize,
+      font: helveticaBold,
+    });
+
+    page.drawText(obj[key], {
+      x: maxW + 70,
+      y: page.getHeight() - initY,
+      size: fontSize,
+      font: helvetica,
+    });
+
+    initY += maxH + 10;
+  }
+
+  console.log(page);
+
+  let pdfBytes;
+  if (pdf) {
+    const pdfDoc_ = await PDFDocument.load(pdf);
+    const page = await pdfDoc_.copyPages(pdfDoc, [0]);
+    pdfDoc_.insertPage(0, page[0]);
+    pdfBytes = await pdfDoc_.saveAsBase64({ dataUri: true });
+  } else {
+    pdfBytes = await pdfDoc.saveAsBase64({ dataUri: true });
+  }
+
+  return pdfBytes;
+};
+
+const getDateTime = () => {
+  let time = new Date();
+  return (
+    time.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    }) +
+    " | " +
+    time.toLocaleTimeString("en-US")
+  );
+};
+
 const rendered = (type = "") => {
   if (type == "") {
     document.getElementById("loading").style.display = "none";
@@ -230,15 +328,22 @@ const emailLoad = async (docName, id) => {
     loading.style.display = "block";
     button.innerText = "Sending..";
 
+    const object = {
+      Date: getDateTime(),
+      Name: client.value,
+      Email: email.value,
+      "Date of Birth": date.value,
+    };
+
     const data = await PDFViewerApplication.pdfDocument.saveDocument();
-    let result = await uint8ArrayToBase64(data);
+    let resultData64 = await createPdf(object, data);;
 
     post(GAS, {
       type: 15,
       data: JSON.stringify({
         time: "",
         fileName: docName,
-        file: result,
+        file: resultData64,
         date: date.value,
         name: client.value,
         email: email.value,
@@ -250,11 +355,13 @@ const emailLoad = async (docName, id) => {
         res = JSON.parse(JSON.parse(res).messege);
         const { result } = res;
         if (result) {
+          let fileName = client.value + "_" + date.value + "_" + docName;
           await PDFViewerApplication.open(PDFViewerApplication.data__);
           e.target.reset();
           button.innerText = "Send";
           loading.style.display = "none";
           $("#sentEmailModal").modal("show");
+          download(resultData64, fileName);
         } else {
           console.log(res);
           error.style.display = "block";
