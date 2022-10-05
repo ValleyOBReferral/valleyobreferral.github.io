@@ -248,20 +248,26 @@ const emailLoad = async (docName, id) => {
   let error = document.querySelector("#error");
   let loading = document.querySelector("#loading");
 
-  date.onpaste = () => {
-    if((/^(0[1-9]|1[012])\-(0[1-9]|[12][0-9]|3[01])\-\d{4}$/).test(date.value) == false){
+  date.addEventListener("input", (e) => {
+    if (
+      /^(0[1-9]|1[012])\-(0[1-9]|[12][0-9]|3[01])\-\d{4}$/.test(date.value) ==
+      false
+    ) {
       error.style.display = "block";
       error.innerText = "Date of Birth allow only MM-DD-YYYY format.";
-    } else{
+    } else {
       error.style.display = "none";
     }
-  }
+  });
 
   form.onsubmit = async (e) => {
     e.preventDefault();
     error.style.display = "none";
 
-    if((/^(0[1-9]|1[012])\-(0[1-9]|[12][0-9]|3[01])\-\d{4}$/).test(date.value) == false){
+    if (
+      /^(0[1-9]|1[012])\-(0[1-9]|[12][0-9]|3[01])\-\d{4}$/.test(date.value) ==
+      false
+    ) {
       error.style.display = "block";
       error.innerText = "Date of Birth allow only MM-DD-YYYY format.";
       return;
