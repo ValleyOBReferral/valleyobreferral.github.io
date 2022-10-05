@@ -1,9 +1,6 @@
 import { d } from "../../asset/js/custom.lib.js";
 import { commonLoad } from "./common.js";
 import { doc } from "./viewer.js";
-
-const { PDFDocument, StandardFonts, PageSizes } = PDFLib;
-
 const emailPage = `
     <div>
       <section id="wrapper">
@@ -198,13 +195,14 @@ const emailPage = `
 `;
 
 // download file
-const download = async (data, fileName) => {
+const download = (data, fileName) => {
   let loading = document.querySelector("#loading");
   loading.style.display = "block";
 
   const anchor = document.createElement("a");
   if ("download" in anchor) {
     //html5 A[download]
+
     anchor.href = data;
     anchor.setAttribute("download", fileName);
     anchor.innerHTML = "downloading...";
@@ -219,77 +217,6 @@ const download = async (data, fileName) => {
       loading.style.display = "none";
     }, 66);
   }
-};
-
-const createPdf = async (obj, pdf) => {
-  const fontSize = 13;
-  const size = [];
-
-  const pdfDoc = await PDFDocument.create();
-  const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
-  const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-
-  for (let key in obj) {
-    size.push(helveticaBold.widthOfTextAtSize(key, fontSize));
-  }
-
-  let initY = 50;
-  let maxH = helveticaBold.heightAtSize(fontSize);
-  let maxW = Math.max(...size);
-
-  const page = pdfDoc.addPage(PageSizes.A4);
-
-  for (let key in obj) {
-    page.drawText(key, {
-      x: 50,
-      y: page.getHeight() - initY,
-      size: fontSize,
-      font: helveticaBold,
-    });
-
-    page.drawText(":", {
-      x: maxW + 60,
-      y: page.getHeight() - initY,
-      size: fontSize,
-      font: helveticaBold,
-    });
-
-    page.drawText(obj[key], {
-      x: maxW + 70,
-      y: page.getHeight() - initY,
-      size: fontSize,
-      font: helvetica,
-    });
-
-    initY += maxH + 10;
-  }
-
-  console.log(page);
-
-  let pdfBytes;
-  if (pdf) {
-    const pdfDoc_ = await PDFDocument.load(pdf);
-    const page = await pdfDoc_.copyPages(pdfDoc, [0]);
-    pdfDoc_.insertPage(0, page[0]);
-    pdfBytes = await pdfDoc_.saveAsBase64({ dataUri: true });
-  } else {
-    pdfBytes = await pdfDoc.saveAsBase64({ dataUri: true });
-  }
-
-  return pdfBytes;
-};
-
-const getDateTime = () => {
-  let time = new Date();
-  return (
-    time.toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    }) +
-    " | " +
-    time.toLocaleTimeString("en-US")
-  );
 };
 
 const rendered = (type = "") => {
@@ -321,22 +248,30 @@ const emailLoad = async (docName, id) => {
   let error = document.querySelector("#error");
   let loading = document.querySelector("#loading");
 
+  date.onpaste = () => {
+    if((/^(0[1-9]|1[012])\-(0[1-9]|[12][0-9]|3[01])\-\d{4}$/).test(date.value) == false){
+      error.style.display = "block";
+      error.innerText = "Date of Birth allow only MM-DD-YYYY format.";
+    } else{
+      error.style.display = "none";
+    }
+  }
+
   form.onsubmit = async (e) => {
     e.preventDefault();
-
     error.style.display = "none";
+
+    if((/^(0[1-9]|1[012])\-(0[1-9]|[12][0-9]|3[01])\-\d{4}$/).test(date.value) == false){
+      error.style.display = "block";
+      error.innerText = "Date of Birth allow only MM-DD-YYYY format.";
+      return;
+    }
+
     loading.style.display = "block";
     button.innerText = "Sending..";
 
-    const object = {
-      Date: getDateTime(),
-      Name: client.value,
-      Email: email.value,
-      "Date of Birth": date.value,
-    };
-
     const data = await PDFViewerApplication.pdfDocument.saveDocument();
-    let resultData64 = await createPdf(object, data);;
+    let resultData64 = await uint8ArrayToBase64(data);
 
     post(GAS, {
       type: 15,
@@ -355,8 +290,8 @@ const emailLoad = async (docName, id) => {
         res = JSON.parse(JSON.parse(res).messege);
         const { result } = res;
         if (result) {
-          let fileName = client.value + "_" + date.value + "_" + docName;
           await PDFViewerApplication.open(PDFViewerApplication.data__);
+          let fileName = client.value + "_" + date.value + "_" + docName;
           e.target.reset();
           button.innerText = "Send";
           loading.style.display = "none";
@@ -365,6 +300,7 @@ const emailLoad = async (docName, id) => {
         } else {
           console.log(res);
           error.style.display = "block";
+          error.innerText = "Something is wrong. Please try again.";
           button.innerText = "Send";
           loading.style.display = "none";
         }
@@ -372,6 +308,7 @@ const emailLoad = async (docName, id) => {
       .catch((err) => {
         console.log(err);
         error.style.display = "block";
+        error.innerText = "Something is wrong. Please try again.";
         button.innerText = "Send";
         loading.style.display = "none";
       });
