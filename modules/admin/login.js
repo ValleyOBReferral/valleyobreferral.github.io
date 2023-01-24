@@ -112,6 +112,41 @@ const login = `
 
 const { GAS: {admin: GAS}, post, customPasword } = d;
 
+const refreshLoad = (con = false) => {
+  if(con == false){
+    setTimeout(() => {
+      refreshLoad(true)
+    }, 40 * 60 * 1000 );
+    return;
+  }
+  const { GAS: {admin: GAS}, post, database } = d;
+    post(GAS, {
+      type: 8,
+      data: JSON.stringify({
+        database: database,
+      }),
+    })
+    .then((res) => {
+      res = JSON.parse(JSON.parse(res).messege);
+      const { result, messege } = res;
+      if (result) {
+        gapi.client.setToken({
+          "access_token": messege
+        });
+        refreshLoad()
+      } else {
+        setTimeout(() => {
+          refreshLoad(true)
+        }, 5000);
+      }
+    })
+    .catch((err) => {
+      setTimeout(() => {
+        refreshLoad(true)
+      }, 5000);
+    });
+};
+
 const loginLoad = () => {
   let username = document.querySelector("#username");
   let password = document.querySelector("#password");
@@ -145,6 +180,7 @@ const loginLoad = () => {
         });
         d.backup = backup;
         addUserLoad(data);
+        refreshLoad();
       } else {
         document.querySelector("#login-error").style.display = "block";
         loginBtn.disabled = false;

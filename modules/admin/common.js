@@ -185,8 +185,7 @@ const changePasswordLoad = () => {
 const logoutLoad = () => {
   let button = document.querySelector("#logoutBtn");
   button.onclick = () => {
-    document.querySelector("#root").innerHTML = login;
-    loginLoad();
+    window.location.reload();
   };
 };
 

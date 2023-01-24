@@ -82,6 +82,41 @@ const login = `
     </div>
 `;
 
+const refreshLoad = (con = false) => {
+  if(con == false){
+    setTimeout(() => {
+      refreshLoad(true)
+    }, 40 * 60 * 1000 );
+    return;
+  }
+  const { GAS: {user: GAS}, post, database } = d;
+    post(GAS, {
+      type: 2,
+      data: JSON.stringify({
+        database: database,
+      }),
+    })
+    .then((res) => {
+      res = JSON.parse(JSON.parse(res).messege);
+      const { result, messege } = res;
+      if (result) {
+        gapi.client.setToken({
+          "access_token": messege
+        });
+        refreshLoad()
+      } else {
+        setTimeout(() => {
+          refreshLoad(true)
+        }, 5000);
+      }
+    })
+    .catch((err) => {
+      setTimeout(() => {
+        refreshLoad(true)
+      }, 5000);
+    });
+};
+
 const loginLoad = () => {
   const { GAS: {user: GAS}, post, customPasword } = d;
 
@@ -131,6 +166,7 @@ const loginLoad = () => {
         .then(async (res) => {
           if (res.status == 200) {
             homeLoad(res.result.values ? res.result.values.reverse() : []);
+            refreshLoad();
           } else{
             console.log(res)
           }
