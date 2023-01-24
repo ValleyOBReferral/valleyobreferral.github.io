@@ -246,7 +246,7 @@ const userPage = `
               <div class="mdl-input-bx">
                 <label>Enter Backup Email</label>
                 <input
-                  type="text"
+                  type="email"
                   name=""
                   id="backupEmail"
                   class="form-control"
@@ -430,7 +430,7 @@ const userPage = `
 `;
 
 const showData = (data, type = "") => {
-  const { post, GAS, database } = d;
+  const { post, GAS: {admin: GAS}, database } = d;
   let table = document.querySelector(".custom-table");
   let loading = document.querySelector("#loading");
   let result = "";
@@ -439,7 +439,7 @@ const showData = (data, type = "") => {
   for (let x of data) {
     let id = index;
     if (type) id = x[5];
-    idList.push({ id: id, database: x[4] });
+    idList.push({ id: id, database: x[4], userName:  x[0]});
     result += `
     <tr>
   		<td>${x[0].substr(1)}</td>
@@ -503,7 +503,7 @@ const showData = (data, type = "") => {
     // history load
     history.onclick = async () => {
       document.querySelector("#root").innerHTML = historyPage;
-      historyLoad(x.database.substr(1));
+      historyLoad(x.database.substr(1), x.userName.substr(1));
     };
   }
   table.style.display = "table";
@@ -512,7 +512,7 @@ const showData = (data, type = "") => {
 };
 
 const addUserLoad = (data) => {
-  const { post, GAS, database } = d;
+  const { post, GAS: {admin: GAS}, database } = d;
   commonLoad();
   showData(data);
   searchLoad(data, showData, [0]);

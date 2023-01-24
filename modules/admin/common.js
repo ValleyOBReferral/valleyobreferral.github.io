@@ -19,7 +19,7 @@ const commonLoad = (type = "") => {
 };
 
 const usersLoad = () => {
-  const { GAS, post, database, backup } = d;
+  const { GAS: {admin: GAS}, post, database, backup } = d;
   let button = document.querySelector("#homeBtn");
   button.onclick = () => {
     document.querySelector("#root").innerHTML = userPage;
@@ -44,32 +44,33 @@ const usersLoad = () => {
 };
 
 const documentsLoad = () => {
-  const { GAS, post, database, backup } = d;
+  const { backup, schema_ } = d;
   let button = document.querySelector("#documentsBtn");
   button.onclick = () => {
     document.querySelector("#root").innerHTML = documentsPage;
-    post(GAS, {
-      type: 8,
-      data: JSON.stringify({
-        database: database,
-      }),
+
+    gapi.client.sheets.spreadsheets.values.get({
+      ...schema_["getDocuments"]
     })
       .then(async (res) => {
-        res = JSON.parse(JSON.parse(res).messege);
-        const { result, data } = res;
-        if (result) {
-          addDocumentsLoad(data);
+        if (res.status == 200) {
+          addDocumentsLoad(res.result.values ? res.result.values.reverse() : []);
           document.querySelector("#backupEmail").value = backup ? backup : "";
+        } else{
+          console.log(res)
         }
       })
       .catch((err) => {
         console.log(err);
+        if(err.status == 401){
+          window.location = "./";
+        }
       });
   };
 };
 
 const backupFormLoad = () => {
-  const { GAS, post, database } = d;
+  const { GAS: {admin: GAS}, post, database } = d;
   let backup = document.querySelector("#backupEmail");
   let button = document.querySelector("#backupBtn");
   let error = document.querySelector("#backup-error");
@@ -115,7 +116,7 @@ const backupFormLoad = () => {
 };
 
 const changePasswordLoad = () => {
-  const { GAS, post, database, customPasword } = d;
+  const { GAS: {admin: GAS}, post, database, customPasword } = d;
   let oldPass = document.querySelector("#oldPass");
   let newPass = document.querySelector("#newPass");
   let conNewPass = document.querySelector("#conNewPass");

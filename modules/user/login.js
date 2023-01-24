@@ -82,9 +82,9 @@ const login = `
     </div>
 `;
 
-const { GAS, post, customPasword } = d;
-
 const loginLoad = () => {
+  const { GAS: {user: GAS}, post, customPasword } = d;
+
   let username = document.querySelector("#username");
   let password = document.querySelector("#password");
   let loginBtn = document.querySelector("#loginBtn");
@@ -107,7 +107,7 @@ const loginLoad = () => {
       return;
     }
     post(GAS, {
-      type: 13,
+      type: 0,
       data: JSON.stringify({
         userName: username.value.trim(),
         password: $password(),
@@ -115,13 +115,32 @@ const loginLoad = () => {
       }),
     }).then(async (res) => {
       res = JSON.parse(JSON.parse(res).messege);
-      const { result, data, messege, history, database } = res;
+      const { result, data, messege, history, token, schema} = res;
       if (result && messege != "ip") {
         document.querySelector("#root").innerHTML = homePage;
         d.database = messege;
         d.history = history;
-        d.$database = database;
-        homeLoad(data);
+        d.schema_ = schema;
+        gapi.client.setToken({
+          "access_token": token
+        });
+
+        gapi.client.sheets.spreadsheets.values.get({
+          ...schema["getDocuments"]
+        })
+        .then(async (res) => {
+          if (res.status == 200) {
+            homeLoad(res.result.values ? res.result.values.reverse() : []);
+          } else{
+            console.log(res)
+          }
+        })
+        .catch((err) => {
+          console.log(err);
+          if(err.status == 401){
+            window.location = "./";
+          }
+        });
       } else if (result && messege == "ip") {
         document.querySelector("#login-error").innerText =
           "Unauthorized Access. Contact System Administrator.";

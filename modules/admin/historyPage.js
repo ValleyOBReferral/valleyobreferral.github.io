@@ -188,7 +188,7 @@ const historyPage = `
 `;
 
 const showData = ({ user, database, data }, type = "") => {
-  const { post, GAS, dateCovert } = d;
+  const { post, GAS: {admin: GAS}, dateCovert, schema_ } = d;
   let table = document.querySelector(".custom-table");
   let loading = document.querySelector("#loading");
   let result = "";
@@ -285,17 +285,37 @@ const showData = ({ user, database, data }, type = "") => {
     // delete
     button.onclick = async () => {
       loading.style.display = "block";
-      let res = await post(GAS, {
-        type: 11,
-        data: JSON.stringify({
-          id: x.id,
-          database: database,
-        }),
-      });
-      res = JSON.parse(JSON.parse(res).messege);
-      showData(res);
-      searchLoad(res.data, showData, [0, 1, 2], res);
-      document.querySelector("#search").value = "";
+
+      await gapi.client.drive.files.delete({
+        fileId: x.file
+      })
+
+      let range = schema_["deleteHistory"].resource.requests[0].deleteDimension.range
+      range.startIndex = x.id - 1;
+      range.endIndex = x.id;
+      schema_["deleteHistory"].spreadsheetId = database;
+      
+      await gapi.client.sheets.spreadsheets.batchUpdate({
+        ...schema_["deleteHistory"]
+      })
+
+      let res = await gapi.client.sheets.spreadsheets.values.getQuery(
+        {
+          ...schema_["getHistory"]
+        }
+      )
+
+      if (res.status == 200) {
+        const obj = {
+          data: res.result.values,
+          user: user,
+          database
+        }
+        showData(obj);
+        searchLoad(res.result.values, showData, [0, 1, 2], obj);
+      } else{
+        console.log(res)
+      }
     };
 
     if (exportBtn) {
@@ -313,7 +333,7 @@ const showData = ({ user, database, data }, type = "") => {
     clearAllBtn.innerHTML = "Processing...";
     loading.style.display = "block";
     let res = await post(GAS, {
-      type: 12,
+      type: 7,
       data: JSON.stringify({
         database: database,
       }),
@@ -327,27 +347,34 @@ const showData = ({ user, database, data }, type = "") => {
   sortingLoad(0, data, type, showData, { user, database, data });
 };
 
-const historyLoad = (database) => {
-  const { post, GAS } = d;
+const historyLoad = (database, userName) => {
+  const {schema_} = d;
   commonLoad(1);
-  post(GAS, {
-    type: 10,
-    data: JSON.stringify({
-      database: database,
-    }),
-  })
-    .then(async (res) => {
-      res = JSON.parse(JSON.parse(res).messege);
-      if (res.result) {
-        showData(res);
-        searchLoad(res.data, showData, [0, 1, 2], res);
-      } else {
-        console.log(res);
+
+  schema_["getHistory"].spreadsheetId = database;
+  gapi.client.sheets.spreadsheets.values.getQuery(
+    {
+      ...schema_["getHistory"]
+    }
+  ).then(async (res) => {
+    if (res.status == 200) {
+      const obj = {
+        data: res.result.values,
+        user: userName,
+        database
       }
-    })
-    .catch((err) => {
-      console.log(err);
-    });
+      showData(obj);
+      searchLoad(res.result.values, showData, [0, 1, 2], obj);
+    } else{
+      console.log(res)
+    }
+  })
+  .catch((err) => {
+    console.log(err);
+    if(err.staus == 401){
+      window.location = "./";
+    }
+  });
 };
 
 export { historyPage, historyLoad };

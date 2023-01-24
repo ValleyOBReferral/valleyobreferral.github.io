@@ -235,7 +235,7 @@ const documentsPage = `
               <div class="mdl-input-bx">
                 <label>Enter Backup Email</label>
                 <input
-                  type="text"
+                  type="email"
                   name=""
                   id="backupEmail"
                   class="form-control"
@@ -419,7 +419,7 @@ const documentsPage = `
 `;
 
 const showData = (data, type = "") => {
-  const { post, GAS, database, dateCovert } = d;
+  const { dateCovert, schema_ } = d;
   let table = document.querySelector(".custom-table");
   let loading = document.querySelector("#loading");
   let result = "";
@@ -427,13 +427,13 @@ const showData = (data, type = "") => {
   let idList = [];
   for (let x of data) {
     const id = {
-      id: index,
-      file: x[2],
+      id: data.length - index + 1,
+      file: x[2].substr(1),
     };
-    if (type) id.id = x[3];
+    if (type) id.id = x[4];
     idList.push(id);
     result += `
-    <tr>
+    <tr id="row-${id.id}">
   		<td>${dateCovert(x[0].substr(1))}</td>
   		<td>${x[1].substr(1)}</td>
       <td class="text-center">
@@ -460,16 +460,28 @@ const showData = (data, type = "") => {
     // delete
     button.onclick = async () => {
       loading.style.display = "block";
-      let res = await post(GAS, {
-        type: 9,
-        data: JSON.stringify({
-          ...x,
-          database: database,
-        }),
-      });
-      res = JSON.parse(JSON.parse(res).messege);
-      showData(res.data);
-      searchLoad(res.data, showData, [1]);
+      await gapi.client.drive.files.delete({
+        fileId: x.file
+      })
+
+      let range = schema_["deleteDocuments"].resource.requests[0].deleteDimension.range
+      range.startIndex = x.id - 1;
+      range.endIndex = x.id;
+
+      await gapi.client.sheets.spreadsheets.batchUpdate({
+        ...schema_["deleteDocuments"]
+      })
+
+      let result = await gapi.client.sheets.spreadsheets.values.get({
+        ...schema_["getDocuments"]
+      })
+
+      if (result.result.values == undefined) {
+        result.result.values = [];
+      }
+
+      showData(result.result.values.reverse());
+      searchLoad(result.result.values.reverse(), showData, [1]);
       document.querySelector("#search").value = "";
     };
   }
@@ -506,29 +518,7 @@ const addDocumentsLoad = (data) => {
       let status = fileId.querySelector(".status");
       status.style.color = "#004a7f";
       status.innerText = "Uploading...";
-      let result;
-      try {
-        const data = await fileUpload(filesListObj[id]);
-        result = JSON.parse(JSON.parse(data).messege);
-        showData(result.data);
-        searchLoad(result.data, showData, [1]);
-        document.querySelector("#search").value = "";
-        loading.style.display = "block";
-      } catch (err) {
-        result = {
-          result: false,
-          err: err,
-        };
-      }
-      if (result.result === true) {
-        delete filesListObj[id];
-        status.style.color = "green";
-        status.innerText = "Uploaded";
-      } else {
-        console.log(result);
-        status.style.color = "red";
-        status.innerText = "Upload Failed!";
-      }
+      await fileUpload(id, status);
     }
 
     button.innerText = "Upload";
@@ -540,7 +530,6 @@ const addDocumentsLoad = (data) => {
 };
 
 const fileListCreate = async (files) => {
-  const { readFiles } = d;
   let filesList = document.querySelector("#filesList");
   let templetete = "";
   for (let i = files.length - 1; i >= 0; i--) {
@@ -551,12 +540,12 @@ const fileListCreate = async (files) => {
     if (file.type == "application/pdf") {
       icon = "pdf.svg";
       if (file.size >= 10 * 2 ** 20) {
-        error = "File size > 5MB.";
+        error = "File size > 10MB.";
       } else {
         error = "";
         filesListObj[fileNo] = {
           fileName: file.name,
-          data64: (await readFiles(file))[0],
+          body: file,
         };
       }
     } else {
@@ -573,7 +562,6 @@ const fileListCreate = async (files) => {
     </div>`;
   }
   filesList.innerHTML = templetete + filesList.innerHTML;
-  console.log(filesListObj);
 };
 
 const removeFileFromList = (id) => {
@@ -582,17 +570,78 @@ const removeFileFromList = (id) => {
   delete filesListObj[id];
 };
 
-const fileUpload = (file) => {
-  const { post, GAS, database } = d;
-  const { fileName, data64 } = file;
-  return post(GAS, {
-    type: 7,
-    data: JSON.stringify({
-      date: "",
-      fileName,
-      data64,
-      database,
-    }),
+const fileUpload = (id, status) => {
+  const fileProp = filesListObj[id];
+  const { schema_ } = d;
+  const { fileName, body: file } = fileProp;
+  return new Promise(async (resolve) => {
+      schema_["uploadDocuments"].upload.metadata.name =
+        schema_["uploadDocuments"].upload.metadata.name +
+        "" +
+        new Date().getTime() +
+        fileName;
+        
+        new gapi.client.drive.files.upload({
+          file: file,
+          type: "application/pdf",
+          metadata: schema_["uploadDocuments"].upload.metadata,
+          onError: function (response) {
+            console.log(response)
+            status.style.color = "red";
+            status.innerText = "Upload Failed!";
+            if(response.error.code == 401){
+              status.innerText = "Authenticate Error! Please login again.";
+            }
+
+            resolve("failed");
+          },
+          onComplete: async function (response) {
+            try{
+              schema_["uploadDocuments"].append.resource.values = [
+                [
+                  "x" + new Date().toISOString(),
+                  "x" + fileName,
+                  "x" + response.id,
+                ],
+              ];
+        
+              await gapi.client.sheets.spreadsheets.values.append(
+                schema_["uploadDocuments"].append
+              );
+        
+              let result = await gapi.client.sheets.spreadsheets.values.get({
+                ...schema_["getDocuments"],
+              });
+        
+              if (result.result.values == undefined) {
+                result.result.values = [];
+              }
+
+              showData(result.result.values.reverse());
+              searchLoad(result.result.values.reverse(), showData, [1]);
+              document.querySelector("#search").value = "";
+              loading.style.display = "block";
+
+              delete filesListObj[id];
+              status.style.color = "green";
+              status.innerText = "Uploaded";
+
+              resolve("success");
+            } catch(err){
+              console.log(err)
+              status.style.color = "red";
+              status.innerText = "Upload Failed!";
+              if(err.status == 401){
+                status.innerText = "Authenticate Error! Please login again.";
+              }
+              resolve("failed");
+            }
+          },
+          onProgress: function (event) {
+            status.style.color = "#004a7f";
+            status.innerText = "Upload progress " + (Number((event.loaded/event.total) * 100).toFixed(2)) + "%";
+          },
+        });
   });
 };
 

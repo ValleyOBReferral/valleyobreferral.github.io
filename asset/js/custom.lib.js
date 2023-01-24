@@ -1,6 +1,10 @@
 const d = {
   // Google Apps Script
-  GAS: "https://script.google.com/macros/s/AKfycbyYWh2OarJMM9F24yKikNNOD-Upn1Si4HQFwW5yZZvfu88T9Ce95fvaSfCQHuAOTBhAow/exec",
+  GAS: {
+    admin: "https://script.google.com/macros/s/AKfycbz371ziqN5Za5DUSDsPG3HYk3e_6sb6Rp4d0DAsOqSYI3Ep3SDjZEZ5VK_lwFFDcNet/exec",
+    user: "https://script.google.com/macros/s/AKfycbzjWt6vmz4fOHwZP3a91dlc00N2d2ClPaHUyF5cz8aID4k8JXuhyq0Bzz0pfHdrgBH8/exec",
+    client: "https://script.google.com/macros/s/AKfycbwBnDOcSZE3GcoucUGVPTCvYE-KcjRy1BhWJqeqb45VMlNPEBekZwkvgFvAuM782ssklQ/exec",
+  },
   // url parameter
   GetURLParameter(parameter) {
     let data = [];

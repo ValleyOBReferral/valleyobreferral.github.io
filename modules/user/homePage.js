@@ -103,15 +103,15 @@ const showData = (data, type = "") => {
   for (let x of data) {
     const id = {
       id: index,
-      file: x[1].substr(1),
-      name: x[0].substr(1),
+      file: x[2].substr(1),
+      name: x[1].substr(1),
     };
     idList.push(id);
     result += `
     <tr>
   		<td>
         <a document="${id.id}" href="javascript:void(0);">
-        ${x[0].substr(1)}
+        ${x[1].substr(1)}
         </a>
       </td>
   	</tr>

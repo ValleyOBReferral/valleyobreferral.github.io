@@ -159,22 +159,22 @@ const showData = (data, type = "") => {
 };
 
 const historyLoad = () => {
-  const { post, GAS, database, history } = d;
+  const {schema_, database} = d;
   commonLoad();
-  post(GAS, {
-    type: 16,
-    data: JSON.stringify({
-      database: database,
-      history: history,
-    }),
-  })
+
+  schema_["getHistory"].spreadsheetId = database;
+  gapi.client.sheets.spreadsheets.values.getQuery(
+    {
+      ...schema_["getHistory"],
+      query: schema_["getHistory"].query.replace("*now", new Date().getTime())
+    }
+  )
     .then(async (res) => {
-      res = JSON.parse(JSON.parse(res).messege);
-      if (res.result) {
-        showData(res.data);
-        searchLoad(res.data, showData, [0, 1, 2]);
-      } else {
-        console.log(res);
+      if (res.status == 200) {
+        showData(res.result.values);
+        searchLoad(res.result.values, showData, [0, 1, 2]);
+      } else{
+        console.log(res)
       }
     })
     .catch((err) => {

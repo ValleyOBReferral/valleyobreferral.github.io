@@ -237,7 +237,7 @@ const uint8ArrayToBase64 = async (data) => {
 };
 
 const emailLoad = async (docName, id) => {
-  const { GAS, post, database, convertDataURIToBinary } = d;
+  const { GAS: {user: GAS}, post, database, schema_ } = d;
   commonLoad();
 
   let form = document.forms["emailSendForm"];
@@ -279,64 +279,122 @@ const emailLoad = async (docName, id) => {
     const data = await PDFViewerApplication.pdfDocument.saveDocument();
     let resultData64 = await uint8ArrayToBase64(data);
 
-    post(GAS, {
-      type: 15,
-      data: JSON.stringify({
-        time: "",
-        fileName: docName,
-        file: resultData64,
-        date: date.value,
-        name: client.value,
-        email: email.value,
-        id: "",
-        database: database,
-      }),
-    })
-      .then(async (res) => {
-        res = JSON.parse(JSON.parse(res).messege);
-        const { result } = res;
-        if (result) {
-          await PDFViewerApplication.open(PDFViewerApplication.data__);
-          let fileName = client.value + "_" + date.value + "_" + docName;
-          e.target.reset();
-          button.innerText = "Send";
-          loading.style.display = "none";
-          $("#sentEmailModal").modal("show");
-          download(resultData64, fileName);
-        } else {
-          console.log(res);
+    schema_["uploadDocuments"].upload.metadata.name =
+        schema_["uploadDocuments"].upload.metadata.name +
+        "" +
+        new Date().getTime() +
+        docName;
+
+    let file =  new File([data], schema_["uploadDocuments"].upload.metadata.name, { type: 'application/pdf' });
+
+    new gapi.client.drive.files.upload({
+      file: file,
+      type: "application/pdf",
+      metadata: schema_["uploadDocuments"].upload.metadata,
+      onError: function (response) {
+        error.style.display = "block";
+        let status = error;
+        console.log(response)
+        status.style.color = "red";
+        status.innerText = "Something is wrong. Please try again.!";
+        if(response.error.code == 401){
+          status.innerText = "Authenticate Error! Please login again.";
+        }
+
+        button.innerText = "Send";
+        loading.style.display = "none";
+      },
+      onComplete: async function (response) {
+        try{
+          post(GAS, {
+            type: 1,
+            data: JSON.stringify({
+              time: "",
+              fileName: docName,
+              fileId: response.id,
+              date: date.value,
+              name: client.value,
+              email: email.value,
+              id: "",
+              database: database,
+            }),
+          })
+          .then(async (res) => {
+            res = JSON.parse(JSON.parse(res).messege);
+            const { result } = res;
+            if (result) {
+              await PDFViewerApplication.open(PDFViewerApplication.data__);
+              let fileName = client.value + "_" + date.value + "_" + docName;
+              e.target.reset();
+              button.innerText = "Send";
+              loading.style.display = "none";
+              error.style.display = "none";
+              $("#sentEmailModal").modal("show");
+              download(resultData64, fileName);
+            } else {
+              console.log(res);
+              error.style.color = "red";
+              error.style.display = "block";
+              error.innerText = "Something is wrong. Please try again.";
+              button.innerText = "Send";
+              loading.style.display = "none";
+            }
+          })
+          .catch((err) => {
+            console.log(err);
+            error.style.color = "red";
+            error.style.display = "block";
+            error.innerText = "Something is wrong. Please try again.";
+            button.innerText = "Send";
+            loading.style.display = "none";
+          });
+
+        } catch(err){
+          let status = error;
           error.style.display = "block";
-          error.innerText = "Something is wrong. Please try again.";
+          console.log(err)
+          status.style.color = "red";
+          status.innerText = "Something is wrong. Please try again.!";
+          if(err.status == 401){
+            status.innerText = "Authenticate Error! Please login again.";
+          }
           button.innerText = "Send";
           loading.style.display = "none";
         }
-      })
-      .catch((err) => {
-        console.log(err);
+      },
+      onProgress: function (event) {
+        let status = error;
         error.style.display = "block";
-        error.innerText = "Something is wrong. Please try again.";
-        button.innerText = "Send";
-        loading.style.display = "none";
-      });
+        status.style.color = "#004a7f";
+        status.innerText = "Progress " + (Number((event.loaded/event.total) * 100).toFixed(2)) + "%";
+      },
+    });
   };
 
   delete window.localStorage["pdfjs.history"];
 
-  let { messege } = JSON.parse(
-    await post(GAS, {
-      type: 18,
-      data: JSON.stringify({
-        id: id,
-      }),
-    })
-  );
+  gapi.client.drive.files.get({
+    "fileId": id,
+    "alt" : "media",
+  }).then(async res => {
+    const binary = res.body;
+    const len = binary.length;
+    const buffer = new Uint8Array(len);
+    for (var i = 0; i < len; i++) {
+        buffer[i] = binary.charCodeAt(i);
+    }
+    
 
-  let { data } = JSON.parse(messege);
+    webViewerLoad();
 
-  webViewerLoad();
-
-  PDFViewerApplication.data__ = convertDataURIToBinary("," + data);
-  await PDFViewerApplication.open(PDFViewerApplication.data__);
+    PDFViewerApplication.data__ = buffer;
+    await PDFViewerApplication.open(PDFViewerApplication.data__);
+  }).catch(err => {
+    console.log(err);
+    if(err.status == 401){
+      window.location = "./";
+    }
+  })
 };
 
 export { emailPage, emailLoad };

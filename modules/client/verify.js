@@ -5,7 +5,7 @@ for (let date = 1; date <= 31; date++) {
   days += `<option value=${date}>${date}</option>`;
 }
 
-for (let year = 2022; year >= 1935; year--) {
+for (let year = new Date().getFullYear(); year >= 1935; year--) {
   years += `<option value=${year}>${year}</option>`;
 }
 
@@ -112,7 +112,7 @@ const verify = `
 `;
 
 const verifyLoad = () => {
-  const { post, GAS, GetURLParameter } = d;
+  const { post, GAS: {client: GAS}, GetURLParameter } = d;
   let loading = document.querySelector("#loading");
   let form = document.forms["form"];
   let button = document.querySelector("#button");
@@ -135,7 +135,7 @@ const verifyLoad = () => {
     }
 
     post(GAS, {
-      type: 17,
+      type: 0,
       data: JSON.stringify({
         date: fullDate.join("-"),
         id: GetURLParameter("i"),
@@ -174,6 +174,11 @@ const verifyLoad = () => {
               backdrop: "static",
             });
           }
+        } else{
+          error.style.display = "block";
+          button.innerText = "Submit";
+          error.innerHTML = "Error found! Please try again.";
+          loading.style.display = "none";
         }
       })
       .catch((err) => {

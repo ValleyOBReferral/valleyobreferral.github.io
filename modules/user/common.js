@@ -13,25 +13,25 @@ const commonLoad = () => {
 };
 
 const homeLoad_ = () => {
-  const { GAS, post, $database: database } = d;
+  const { schema_ } = d;
   let button = document.querySelector("#homeBtn");
   button.onclick = () => {
     document.querySelector("#root").innerHTML = homePage;
-    post(GAS, {
-      type: 14,
-      data: JSON.stringify({
-        database: database,
-      }),
+    gapi.client.sheets.spreadsheets.values.get({
+      ...schema_["getDocuments"]
     })
       .then(async (res) => {
-        res = JSON.parse(JSON.parse(res).messege);
-        const { result, data } = res;
-        if (result) {
-          homeLoad(data);
+        if (res.status == 200) {
+          homeLoad(res.result.values ? res.result.values.reverse() : []);
+        } else{
+          console.log(res)
         }
       })
       .catch((err) => {
         console.log(err);
+        if(err.status == 401){
+          window.location = "./";
+        }
       });
   };
 };

@@ -43,7 +43,7 @@ const login = `
                         class="form-control"
                         autocomplete="off"
                         required
-                        placeholder="Password"
+                        placeholder="Password",
                       />
                     </div>
                   </div>
@@ -110,7 +110,7 @@ const login = `
     </div>
 `;
 
-const { GAS, post, customPasword } = d;
+const { GAS: {admin: GAS}, post, customPasword } = d;
 
 const loginLoad = () => {
   let username = document.querySelector("#username");
@@ -134,11 +134,15 @@ const loginLoad = () => {
       }),
     }).then(async (res) => {
       res = JSON.parse(JSON.parse(res).messege);
-      const { result, data, messege, backup } = res;
+      const { result, data, messege, backup, schema, token } = res;
       if (result) {
         document.querySelector("#root").innerHTML = userPage;
         document.querySelector("#backupEmail").value = backup ? backup : "";
         d.database = messege;
+        d.schema_ = schema;
+        gapi.client.setToken({
+          "access_token": token
+        });
         d.backup = backup;
         addUserLoad(data);
       } else {
